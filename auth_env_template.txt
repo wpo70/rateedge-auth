@@ -1,0 +1,4 @@
+DATABASE_URL=postgresql://postgres:RateEdge2026!@db.oxwbyotzdqccaajyaqhn.supabase.co:6543/postgres
+RESEND_API_KEY=your-resend-api-key-here
+ADMIN_KEY=choose-a-strong-admin-password-here
+PORT=3000

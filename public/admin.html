@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RateEdge Auth Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #020617;
+      color: #f9fafb;
+      padding: 2rem;
+      line-height: 1.5;
+    }
+    h1 { margin-bottom: 1rem; color: #dc2626; }
+    h2 { margin: 2rem 0 1rem; font-size: 1.25rem; }
+    
+    .auth-section {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    input, select {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #374151;
+      border-radius: 4px;
+      background: #1e293b;
+      color: #f9fafb;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      margin-right: 0.5rem;
+    }
+    
+    .btn-primary { background: #dc2626; color: white; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-danger { background: #991b1b; color: white; }
+    .btn-secondary { background: #374151; color: white; }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    
+    th, td {
+      text-align: left;
+      padding: 0.75rem;
+      border-bottom: 1px solid #1e293b;
+    }
+    
+    th { color: #9ca3af; font-weight: 500; }
+    
+    .status-pending { color: #fbbf24; }
+    .status-approved { color: #22c55e; }
+    .status-rejected { color: #ef4444; }
+    
+    #message {
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .message-success { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; }
+    .message-error { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>RateEdge Auth Admin</h1>
+  
+  <div class="auth-section">
+    <label>Admin Key: </label>
+    <input type="password" id="adminKey" placeholder="Enter admin key" style="width: 300px;">
+    <button class="btn-primary" onclick="loadData()">Load Data</button>
+  </div>
+  
+  <div id="message"></div>
+
+  <h2>Pending Access Requests</h2>
+  <table id="requestsTable">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Site</th>
+        <th>Requested</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Add User Directly</h2>
+  <div class="auth-section">
+    <input type="email" id="newEmail" placeholder="user@company.com" style="width: 250px;">
+    <select id="newSite">
+      <option value="irs">IRS Pricer</option>
+      <option value="options">Swaption Pricer</option>
+      <option value="oms">RateEdge OMS</option>
+      <option value="data">Data Portal</option>
+    </select>
+    <button class="btn-success" onclick="addUser()">Add User</button>
+  </div>
+
+  <h2>Approved Users</h2>
+  <table id="usersTable">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Site</th>
+        <th>Approved</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const API = '';
+    const siteNames = {
+      'irs': 'IRS Pricer',
+      'options': 'Swaption Pricer',
+      'oms': 'RateEdge OMS',
+      'data': 'Data Portal'
+    };
+
+    function getKey() {
+      return document.getElementById('adminKey').value;
+    }
+
+    function showMessage(text, isError = false) {
+      const msg = document.getElementById('message');
+      msg.textContent = text;
+      msg.className = isError ? 'message-error' : 'message-success';
+      msg.style.display = 'block';
+      setTimeout(() => msg.style.display = 'none', 3000);
+    }
+
+    async function loadData() {
+      await loadRequests();
+      await loadUsers();
+    }
+
+    async function loadRequests() {
+      try {
+        const res = await fetch(`${API}/api/admin/requests`, {
+          headers: { 'X-Admin-Key': getKey() }
+        });
+        if (!res.ok) throw new Error('Unauthorized');
+        const data = await res.json();
+        
+        const tbody = document.querySelector('#requestsTable tbody');
+        tbody.innerHTML = data.length ? data.map(r => `
+          <tr>
+            <td>${r.email}</td>
+            <td>${siteNames[r.site] || r.site}</td>
+            <td>${new Date(r.requested_at).toLocaleString()}</td>
+            <td>
+              <button class="btn-success" onclick="approve('${r.email}', '${r.site}')">Approve</button>
+              <button class="btn-danger" onclick="reject('${r.email}', '${r.site}')">Reject</button>
+            </td>
+          </tr>
+        `).join('') : '<tr><td colspan="4">No pending requests</td></tr>';
+      } catch (e) {
+        showMessage('Failed to load requests: ' + e.message, true);
+      }
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API}/api/admin/users`, {
+          headers: { 'X-Admin-Key': getKey() }
+        });
+        if (!res.ok) throw new Error('Unauthorized');
+        const data = await res.json();
+        
+        const tbody = document.querySelector('#usersTable tbody');
+        tbody.innerHTML = data.length ? data.map(u => `
+          <tr>
+            <td>${u.email}</td>
+            <td>${siteNames[u.site] || u.site}</td>
+            <td>${new Date(u.approved_at).toLocaleString()}</td>
+            <td>
+              <button class="btn-danger" onclick="revoke('${u.email}', '${u.site}')">Revoke</button>
+            </td>
+          </tr>
+        `).join('') : '<tr><td colspan="4">No approved users</td></tr>';
+      } catch (e) {
+        showMessage('Failed to load users: ' + e.message, true);
+      }
+    }
+
+    async function approve(email, site) {
+      try {
+        const res = await fetch(`${API}/api/admin/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Key': getKey() },
+          body: JSON.stringify({ email, site })
+        });
+        if (!res.ok) throw new Error('Failed');
+        showMessage('User approved and notified');
+        loadData();
+      } catch (e) {
+        showMessage('Failed to approve', true);
+      }
+    }
+
+    async function reject(email, site) {
+      try {
+        const res = await fetch(`${API}/api/admin/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Key': getKey() },
+          body: JSON.stringify({ email, site })
+        });
+        if (!res.ok) throw new Error('Failed');
+        showMessage('Request rejected');
+        loadData();
+      } catch (e) {
+        showMessage('Failed to reject', true);
+      }
+    }
+
+    async function revoke(email, site) {
+      if (!confirm(`Revoke access for ${email}?`)) return;
+      try {
+        const res = await fetch(`${API}/api/admin/revoke`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Key': getKey() },
+          body: JSON.stringify({ email, site })
+        });
+        if (!res.ok) throw new Error('Failed');
+        showMessage('Access revoked');
+        loadData();
+      } catch (e) {
+        showMessage('Failed to revoke', true);
+      }
+    }
+
+    async function addUser() {
+      const email = document.getElementById('newEmail').value;
+      const site = document.getElementById('newSite').value;
+      if (!email) return showMessage('Enter an email', true);
+      
+      try {
+        const res = await fetch(`${API}/api/admin/add-user`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Key': getKey() },
+          body: JSON.stringify({ email, site })
+        });
+        if (!res.ok) throw new Error('Failed');
+        showMessage('User added');
+        document.getElementById('newEmail').value = '';
+        loadData();
+      } catch (e) {
+        showMessage('Failed to add user', true);
+      }
+    }
+  </script>
+  <h2>Login History (Last 100)</h2>
+  <table id="loginsTable">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Site</th>
+        <th>Logged In</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    async function loadLogins() {
+      try {
+        const res = await fetch(\\/api/admin/logins\, {
+          headers: { 'X-Admin-Key': getKey() }
+        });
+        if (!res.ok) throw new Error('Unauthorized');
+        const data = await res.json();
+        
+        const tbody = document.querySelector('#loginsTable tbody');
+        tbody.innerHTML = data.length ? data.map(l => \
+          <tr>
+            <td>\</td>
+            <td>\</td>
+            <td>\</td>
+          </tr>
+        \).join('') : '<tr><td colspan="3">No login history</td></tr>';
+      } catch (e) {
+        console.error('Failed to load logins:', e);
+      }
+    }
+    
+    // Add to loadData function
+    const origLoadData = loadData;
+    loadData = async function() {
+      await origLoadData();
+      await loadLogins();
+    };
+  </script>
+</body>
+</html>
