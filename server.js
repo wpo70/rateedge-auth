@@ -17,14 +17,8 @@ app.use(cors({
     'https://options.rateedge.au',
     'https://rateedge.trade',
     'https://rateedge.com.au',
-    'https://rateedge.au',
-    'https://www.rateedge.au',
-    'https://wb.rateedge.au',
-    'https://rateedge-options.streamlit.app',
-    'https://rateedge-irs-aajsquigpwzrsy6kfxxl8d.streamlit.app',
     'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:8501'
+    'http://localhost:5173'
   ],
   credentials: true
 }));
@@ -114,7 +108,7 @@ app.post('/api/auth/request-otp', async (req, res) => {
            <p><strong>Site:</strong> ${siteNames[site]}</p>
            <p><strong>Time:</strong> ${new Date().toISOString()}</p>
            <br>
-           <p>Approve at: <a href="https://rateedge-auth.onrender.com/admin.html">Admin Panel</a></p>`
+           <p>Approve at: <a href="https://rateedge-auth.azurewebsites.net/admin.html">Admin Panel</a></p>`
         );
       }
 
@@ -185,19 +179,13 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       [otpResult.rows[0].id]
     );
 
-    // Create session token (valid for 24 hours)
+    // Create session token (valid for 30 days)
     const token = generateToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     await pool.query(
       'INSERT INTO auth_sessions (email, site, token, expires_at) VALUES ($1, $2, $3, $4)',
       [email.toLowerCase(), site, token, expiresAt]
-    );
-
-    // Log the login
-    await pool.query(
-      'INSERT INTO login_history (email, site, logged_in_at) VALUES ($1, $2, NOW())',
-      [email.toLowerCase(), site]
     );
 
     res.json({ 
@@ -277,8 +265,6 @@ function adminAuth(req, res, next) {
 
 // List pending access requests
 app.get('/api/admin/requests', adminAuth, async (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.set('Cache-Control', 'no-store');
   try {
     const result = await pool.query(
       `SELECT * FROM access_requests WHERE status = 'pending' ORDER BY requested_at DESC`
@@ -339,8 +325,6 @@ app.post('/api/admin/reject', adminAuth, async (req, res) => {
 
 // List approved users
 app.get('/api/admin/users', adminAuth, async (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.set('Cache-Control', 'no-store');
   try {
     const result = await pool.query(
       `SELECT * FROM approved_users WHERE is_active = true ORDER BY approved_at DESC`
@@ -389,31 +373,13 @@ app.post('/api/admin/add-user', adminAuth, async (req, res) => {
 // Helper for site domains
 function getSiteDomain(site) {
   const domains = {
-    'irs': 'rateedge-irs-aajsquigpwzrsy6kfxxl8d.streamlit.app',
-    'options': 'rateedge-options.streamlit.app',
+    'irs': 'irs.rateedge.au',
+    'options': 'options.rateedge.au',
     'oms': 'rateedge.trade',
     'data': 'rateedge.com.au'
   };
   return domains[site] || site;
 }
-
-// Redirect root to admin
-app.get('/', (req, res) => {
-  res.redirect('/admin.html');
-});
-
-// Get login history
-app.get('/api/admin/logins', adminAuth, async (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  try {
-    const result = await pool.query(
-      'SELECT * FROM login_history ORDER BY logged_in_at DESC LIMIT 100'
-    );
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch login history' });
-  }
-});
 
 // Health check
 app.get('/health', (req, res) => {
