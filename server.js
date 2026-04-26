@@ -22,6 +22,7 @@ app.use(cors({
     'https://wb.rateedge.au',
     'https://rateedge-options.streamlit.app',
     'https://rateedge-irs-aajsquigpwzrsy6kfxxl8d.streamlit.app',
+    'https://rateedge-data.streamlit.app',
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:8501',
@@ -402,7 +403,7 @@ function getSiteDomain(site) {
     'irs': 'rateedge-irs-aajsquigpwzrsy6kfxxl8d.streamlit.app',
     'options': 'rateedge-options.streamlit.app',
     'oms': 'rateedge.trade',
-    'data': 'rateedge.com.au',
+    'data': 'rateedge-data.streamlit.app',
     'blotter': 'wb.rateedge.au'
   };
   return domains[site] || site;
